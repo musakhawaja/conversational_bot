@@ -5,7 +5,7 @@ import base64
 def autoplay_audio(audio_bytes):
     b64 = base64.b64encode(audio_bytes).decode()
     audio_html = f"""
-    <audio autoplay>
+    <audio autoplay="true">
     <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
     </audio>
     """
