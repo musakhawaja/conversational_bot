@@ -20,7 +20,7 @@ def autoplay_audio(audio_bytes):
     sound.markdown(audio_html, unsafe_allow_html=True)
     
     # Wait for the audio to finish playing
-    time.sleep(audio_length)
+    time.sleep(audio_length+1)
     
     sound.empty() 
 def main():
