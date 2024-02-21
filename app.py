@@ -1,15 +1,28 @@
 import streamlit as st
 from gen import chat,transcription  # Import the chat function from your gen.py
 import base64
-
+import time
+from pydub import AudioSegment
+import io
 def autoplay_audio(audio_bytes):
+    # Convert byte content to audio segment
+    audio = AudioSegment.from_file(io.BytesIO(audio_bytes), format="mp3")
+    # Calculate the length of the audio in seconds
+    audio_length = len(audio) / 1000.0
+    
     b64 = base64.b64encode(audio_bytes).decode()
     audio_html = f"""
     <audio autoplay="true">
     <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
     </audio>
     """
-    st.markdown(audio_html, unsafe_allow_html=True)    
+    sound = st.empty()
+    sound.markdown(audio_html, unsafe_allow_html=True)
+    
+    # Wait for the audio to finish playing
+    time.sleep(audio_length)
+    
+    sound.empty() 
 def main():
     st.title("Conversational AI")
     
