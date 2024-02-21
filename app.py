@@ -1,8 +1,7 @@
 import streamlit as st
 from gen import chat,transcription  # Import the chat function from your gen.py
 import base64
-import time
-import tempfile
+
 def autoplay_audio(audio_bytes):
     b64 = base64.b64encode(audio_bytes).decode()
     audio_html = f"""

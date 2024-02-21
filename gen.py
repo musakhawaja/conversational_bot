@@ -37,6 +37,7 @@ def normalize_text(text):
 def audio(message, person):
     voicess = voices()
     search_terms_normalized = [normalize_text(word) for word in person.split()]
+    
     default_voice_id = None 
     for voice in voicess:
         if normalize_text(voice.name) == "rachel": 
