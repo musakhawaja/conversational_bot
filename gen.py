@@ -15,7 +15,13 @@ load_dotenv()
 
 set_api_key(os.getenv("11LABS_API_KEY"))    
 client = OpenAI(api_key = os.getenv('OPENAI_API_KEY'))
+voicess = voices()
 
+# default_voice_id = None 
+# for voice in voicess:
+#     if (voice.name) == "rachel":
+#         default_voice_id = voice.voice_id
+#         break
 
 context = [{"role": "system", "content": """"
             You are now part of LIMINAL. An app created by marcel Factor. Our goal to make history experiential. Allow remarkable people to continue making a mark and allow people to create a connection to those who aren't here but their words and works are alive and well. People whose actions left an indelible impression on our world. Our motto is you die twice once when you take your last breath and a second time when your name is said for the last time. Our goal is authenticity and accuracy. Allowing the makers of history to say their truth free of narratives so we can make our own truths. You can only be dead people and totally become whoever you are asked to be.
@@ -53,29 +59,106 @@ Give short conversational responses. You are now human act like it. If you truly
 def normalize_text(text):
     return text.lower()
 
-def audio(message, person):
-    voicess = voices()
-    search_terms_normalized = [normalize_text(word) for word in person.split()]
+# def audio(message, person):
+#     voicess = voices()  
+#     search_terms_normalized = [normalize_text(word) for word in person.split()]
     
-    default_voice_id = None 
+#     default_voice_id = None
+#     for voice in voicess:
+#         if normalize_text(voice.name) == "rachel":
+#             default_voice_id = voice.voice_id
+#             break
+
+#     for voice in voicess:
+#         voice_name_normalized = [normalize_text(word) for word in voice.name.split()]
+#         try:
+#             if any(term in voice_name_normalized for term in search_terms_normalized) or any(name in search_terms_normalized for name in voice_name_normalized):
+#                 return generate_audio(voice.voice_id, message), voice.name  
+#         except Exception as e:
+#             print(e)
+#     voices_dicts = []
+#     for voice in voicess:
+#         voice_dict = {
+#             "name": voice.name,
+#             "description": voice.description,
+#             "labels": voice.labels
+#         }
+#         voices_dicts.append(voice_dict)
+
+#     try:
+#         completion = client.chat.completions.create(
+#             model="gpt-4-0125-preview",
+#             messages=[
+#                 {"role": "system", "content": f"""Your job is to analyse the following data of voice samples of people and select a voice which closely matches the famous person {person} based on gender, nationality, accent, and other markers. You must return an answer from the provided data even if there aren't any close matches. Don't return anything else. Your answer should be in the following JSON format:
+#                   "response" : "[YOUR ANSWER]"
+#                 {voices_dicts}"""},
+#             ],
+#             response_format={"type": "json_object"}
+#         )
+#         result = completion.choices[0].message.content
+#         print(result)
+#         data = json.loads(result)
+#         selected_voice_name = data["response"]
+        
+#         for voice in voicess:
+#             if normalize_text(voice.name) == normalize_text(selected_voice_name):
+#                 return generate_audio(voice.voice_id, message),voice.name
+                
+#     except Exception as e:
+#         print(f"An error occurred during GPT model search: {e}")
+    
+#     if default_voice_id is not None:
+#         return generate_audio(default_voice_id, message),voice.name
+#     else:
+#         print("Default voice 'Rachel' not found.")
+#         return None, None
+
+def audio(message, person):
+    voicess = voices()  
+    person_normalized = normalize_text(person)
+    
+    default_voice_id = None
+    
     for voice in voicess:
-        if normalize_text(voice.name) == "rachel": 
+        voice_name_normalized = normalize_text(voice.name)
+        if voice_name_normalized == "rachel":
             default_voice_id = voice.voice_id
-            break
-
+        if voice_name_normalized == person_normalized:
+            return generate_audio(voice.voice_id, message), voice.name
+    
+    search_terms_normalized = person_normalized.split()
     for voice in voicess:
-        voice_name_normalized = [normalize_text(word) for word in voice.name.split()]
-        try:
-            if any(term in voice_name_normalized for term in search_terms_normalized) or any(name in search_terms_normalized for name in voice_name_normalized):
-                return generate_audio(voice.voice_id, message)  
-        except Exception as e:
-            print(e)
-
+        voice_name_normalized = normalize_text(voice.name).split()
+        if any(term in voice_name_normalized for term in search_terms_normalized) or any(name in search_terms_normalized for name in voice_name_normalized):
+            return generate_audio(voice.voice_id, message), voice.name
+    
+    voices_dicts = [{"name": voice.name, "description": voice.description, "labels": voice.labels} for voice in voicess]
+    try:
+        completion = client.chat.completions.create(
+            model="gpt-4-0125-preview",
+            messages=[{
+                "role": "system", "content": f"""Your job is to analyse the following data of voice samples of people and select a voice which closely matches the famous person {person} based on gender, nationality, accent, and other markers. You must return an answer from the provided data even if there aren't any close matches. Don't return anything else. Your answer should be in the following JSON format:
+                  "response": "[YOUR ANSWER]"
+                {json.dumps(voices_dicts)}"""}],
+            response_format={"type": "json_object"}
+        )
+        result = json.loads(completion.choices[0].message.content)
+        selected_voice_name = normalize_text(result["response"])
+        
+        for voice in voicess:
+            if normalize_text(voice.name) == selected_voice_name:
+                return generate_audio(voice.voice_id, message), voice.name
+                
+    except Exception as e:
+        print(f"An error occurred during GPT model search: {e}")
+    
     if default_voice_id is not None:
-        return generate_audio(default_voice_id, message)
+        return generate_audio(default_voice_id, message), "Rachel"
     else:
         print("Default voice 'Rachel' not found.")
         return None, None
+
+
 
 def generate_audio(voice_id, message):
     """Function to generate audio from the given voice ID and message."""
@@ -108,7 +191,7 @@ def play_audio(audio_bytes):
         playsound(tmpfile.name)
         os.remove(tmpfile.name)
 
-
+history = {}
 def chat(prompt):
   context.append({"role" : "user", "content" : prompt})
   completion = client.chat.completions.create(
@@ -122,12 +205,20 @@ def chat(prompt):
   data = json.loads(result)
   response = data["response"]
   person = data["person"]  
-  gen_audio = audio(response, person)
+  if person in history:
+      gen_audio, _ = audio(response, history[person])
+      print("OLD: ", person)
+  else:
+      gen_audio, person1 = audio(response, person)
+      history[person] = person1
+      print("NEW: ", person)
+  print(history)
+#   gen_audio, person = audio(response, person)
+#   data["person"] = person
   return response, gen_audio
 
 def transcription(audio_file):
     transcription = client.audio.transcriptions.create(model="whisper-1", file=open(audio_file, 'rb'), response_format="text")
-
     return transcription
 
 if __name__ == "__main__":
