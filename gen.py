@@ -171,9 +171,9 @@ def generate_audio(voice_id, message):
     data = {
         "text": message,
         "voice_settings": {
-            "stability": 0.29,
-            "similarity_boost": 0.75,
-            "style": 0.9, "use_speaker_boost": True
+            "stability": 0.28,
+            "similarity_boost": 0.98,
+            "style": 0.52, "use_speaker_boost": True
         },
         "model_id": "eleven_turbo_v2",
     }
