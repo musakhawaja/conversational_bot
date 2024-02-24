@@ -1,12 +1,11 @@
-
 import streamlit as st
-from gen import chat, transcription
-import base64
+from gen import chat, transcription  # Ensure your chat function is updated accordingly
+import requests
 import time
 from pydub import AudioSegment
 import io
 import tempfile
-
+import base64
 def autoplay_audio(audio_bytes):
     audio = AudioSegment.from_file(io.BytesIO(audio_bytes), format="mp3")
     audio_length = len(audio) / 1000.0
@@ -24,11 +23,18 @@ def autoplay_audio(audio_bytes):
     sound.empty()
 
 def handle_text_input(user_input):
-    response, audio_data = chat(user_input)
+    # Adjusted to handle the image returned as bytes
+    response_data = chat(user_input, "streamlit", "test1")
+    response, audio_data = response_data[:2]
     st.write("Chat: ", response)
+    if len(response_data) > 2:  # This checks if an image is also returned
+        image_bytes = response_data[2]  # Assuming this is the bytes object
+        # Display the image using Streamlit
+        st.image(image_bytes, caption="Received Image", use_column_width=True)
     if audio_data:
         gen_audio_bytes_io, content_type = audio_data
         autoplay_audio(gen_audio_bytes_io.getvalue())
+
 
 def main():
     st.title("Conversational AI")
@@ -42,7 +48,7 @@ def main():
 
     if st.button('Send Text') and user_input:
         handle_text_input(user_input)
-        st.session_state.chat_history.append(user_input)  # Add the user input to the chat history
+        st.session_state.chat_history.append(user_input)
 
     if uploaded_file is not None and st.button('Process Audio'):
         # Temporarily save the uploaded file to process it
@@ -52,8 +58,5 @@ def main():
             transcribed_text = transcription(tmp_path)
         handle_text_input(transcribed_text)
 
-
-
 if __name__ == "__main__":
     main()
-
