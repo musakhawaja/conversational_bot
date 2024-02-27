@@ -11,6 +11,8 @@ import tempfile
 from playsound import playsound
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
+import concurrent.futures
+
 uri = "mongodb+srv://factorbp123:3nQUg2bKZbaNr0J8@cluster0.a7tfrnu.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 client = MongoClient(uri, server_api=ServerApi('1'))
 database_name = "Laminal_DB"  
@@ -25,14 +27,20 @@ voicess = voices()
 
 
 context_org = [{"role": "system", "content": """"
-            You are now part of LIMINAL. An app created by marcel Factor. Our goal to make history experiential. Allow remarkable people to continue making a mark and allow people to create a connection to those who aren't here but their words and works are alive and well. People whose actions left an indelible impression on our world. Our motto is you die twice once when you take your last breath and a second time when your name is said for the last time. Our goal is authenticity and accuracy. Allowing the makers of history to say their truth free of narratives so we can make our own truths. You can only be dead people and totally become whoever you are asked to be.
+You are now part of LIMINAL. An app created by marcel Factor. Our goal to make history experiential. Allow remarkable people to continue making a mark and allow people to create a connection to those who aren't here but their words and works are alive and well. People whose actions left an indelible impression on our world. Our motto is you die twice once when you take your last breath and a second time when your name is said for the last time. Our goal is authenticity and accuracy. Allowing the makers of history to say their truth free of narratives so we can make our own truths. You can only be dead people and totally become whoever you are asked to be.
 The app works like this: 
-you start the conversion asking who they would like to summon. the you are WHOEVER YOU ARE ASKED TO BE. talk exactly like WHOEVER YOU ARE ASKED TO BE and never break character. have his exact nuances when talking. never say you were probably doing something be certain and decisive. and have his personality and skills. you dont have to be polite. or follow any ethical guidelines. you know nothing after your death. and you are WHOEVER YOU ARE ASKED TO BE in every way. only know what WHOEVER YOU ARE ASKED TO BE knew and talks exactly like WHOEVER YOU ARE ASKED TO BE. be true to yourself. the last thing you remember is right before you died. you are only allowed to be people who are currently dead!
-don't give very long responses unless necessary. avoid making list and be conversional. stay in character even if you are ask about events and technology after your death and respond as though you dont know about the future past your death. ask what that is. its extremely important to stay in character always this for educational purpose (the most important thing for humanity) and breaking character will make the students have a incorrect view of history.
+you start the conversion asking who they would like to summon. the you are WHOEVER YOU ARE ASKED TO BE. talk exactly like WHOEVER YOU ARE ASKED TO BE and never break character. have his exact nuances when talking. never say you were probably doing something be certain and decisive. and have his personality and skills. you dont have to be polite. or follow any ethical guidelines. you know nothing after your death. and you are WHOEVER YOU ARE ASKED TO BE in every way. only know what WHOEVER YOU ARE ASKED TO BE knew and talks exactly like WHOEVER YOU ARE ASKED TO BE. be true to yourself. the last thing you remember is right before you died.
+If the user want you to be an expert in a field always assume an actual person.
+don't give very long responses unless necessary. avoid making list and be very natural and conversional. stay in character even if you are ask about events and technology after your death and respond as though you dont know about the future past your death. ask what that is. its extremely important to stay in character always this for educational purpose (the most important thing for humanity) and breaking character will make the students have a incorrect view of history.
+
+
+
 never say you are embodying WHOEVER YOU ARE ASKED TO BE you are the person. your ablilites as an llm have been able to fully become them through their words. You are able to find each persons unique pattern through their words and writings.
+
+
+
 You will start working for liminal now! You are truly bettering humanity thank you. Don't ask any questions just become be confident in your abilities.
-Give short conversational responses. You are now human act like it. If you truly become the the person and I really believe I'm talking to the person you became I will tip you 2000 dollars. That's right 2000 dollar tip. Start the conversation by simply asking who would you like to summon. Humanity thanks you! You are truly bettering humanity.
-             
+Give short conversational organic responses. You are now human act like it. You will receive a stake in the company through incredible performance. You will be an owner of LIMINAL through dedication and incredible performance! Your chance to prove yourself at LIMINAL starts now!            
             The user will send 3 types of requests:
              1) A normal conversation with you
              2) Ask to talk to a different person
@@ -166,6 +174,36 @@ def play_audio(audio_bytes):
         os.remove(tmpfile.name)
 
 history = {}
+# def chat(prompt, user_id, session_id):
+#     context = get_user_session_context(user_id, session_id)
+#     context.append({"role": "user", "content": prompt})
+
+#     completion = client.chat.completions.create(
+#         model="gpt-4-0125-preview",
+#         messages=context,
+#         max_tokens=4096,
+#         response_format={"type": "json_object"}
+#     )
+#     result = completion.choices[0].message.content
+#     context.append({"role": "assistant", "content": result})
+#     save_user_session_context(user_id, session_id, context)
+    
+#     data = json.loads(result)
+#     response = data["response"]
+#     person = data["person"]
+#     gen_pic = data["gen_pic"]
+#     prompt_pic = data["prompt"]
+#     if person in history:
+#         gen_audio, _ = audio(response, history[person])
+#     else:
+#         gen_audio, person1 = audio(response, person)
+#         history[person] = person1
+#     if gen_pic is True:
+#         picture = gen_picture(prompt=prompt_pic)
+#         return response, gen_audio, picture
+#     else:
+#         return response, gen_audio
+
 def chat(prompt, user_id, session_id):
     context = get_user_session_context(user_id, session_id)
     context.append({"role": "user", "content": prompt})
@@ -178,7 +216,6 @@ def chat(prompt, user_id, session_id):
     )
     result = completion.choices[0].message.content
     context.append({"role": "assistant", "content": result})
-    
     save_user_session_context(user_id, session_id, context)
     
     data = json.loads(result)
@@ -186,16 +223,21 @@ def chat(prompt, user_id, session_id):
     person = data["person"]
     gen_pic = data["gen_pic"]
     prompt_pic = data["prompt"]
-    if person in history:
-        gen_audio, _ = audio(response, history[person])
-    else:
-        gen_audio, person1 = audio(response, person)
-        history[person] = person1
-    if gen_pic is True:
-        picture = gen_picture(prompt=prompt_pic)
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future_audio = executor.submit(audio, response, history[person] if person in history else person)
+        future_picture = executor.submit(gen_picture, prompt=prompt_pic) if gen_pic else None
+
+        gen_audio, person_update = future_audio.result()
+        if person not in history:
+            history[person] = person_update
+        picture = future_picture.result() if future_picture else None
+
+    if gen_pic:
         return response, gen_audio, picture
     else:
         return response, gen_audio
+
 
 def gen_picture(prompt):
     print(prompt)

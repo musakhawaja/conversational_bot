@@ -1,5 +1,5 @@
 import streamlit as st
-from gen import chat, transcription  # Ensure your chat function is updated accordingly
+from gen import chat, transcription  
 import requests
 import time
 from pydub import AudioSegment
@@ -23,13 +23,11 @@ def autoplay_audio(audio_bytes):
     sound.empty()
 
 def handle_text_input(user_input):
-    # Adjusted to handle the image returned as bytes
-    response_data = chat(user_input, "streamlit", "test1")
+    response_data = chat(user_input, "streamlit", "test22")
     response, audio_data = response_data[:2]
     st.write("Chat: ", response)
-    if len(response_data) > 2:  # This checks if an image is also returned
-        image_bytes = response_data[2]  # Assuming this is the bytes object
-        # Display the image using Streamlit
+    if len(response_data) > 2:  
+        image_bytes = response_data[2] 
         st.image(image_bytes, caption="Received Image", use_column_width=True)
     if audio_data:
         gen_audio_bytes_io, content_type = audio_data
@@ -51,7 +49,6 @@ def main():
         st.session_state.chat_history.append(user_input)
 
     if uploaded_file is not None and st.button('Process Audio'):
-        # Temporarily save the uploaded file to process it
         with tempfile.NamedTemporaryFile(delete=True, suffix='.mp3') as tmp:
             tmp.write(uploaded_file.getvalue())
             tmp_path = tmp.name
