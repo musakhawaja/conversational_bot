@@ -103,30 +103,36 @@ def audio(message, person):
     
     for voice in voicess:
         voice_name_normalized = normalize_text(voice.name)
-        if voice_name_normalized == "rachel":
+        if voice_name_normalized == "default":
             default_voice_id = voice.voice_id
         if voice_name_normalized == person_normalized:
             return generate_audio(voice.voice_id, message), voice.name
     
-    search_terms_normalized = person_normalized.split()
-    for voice in voicess:
-        voice_name_normalized = normalize_text(voice.name).split()
-        if any(term in voice_name_normalized for term in search_terms_normalized) or any(name in search_terms_normalized for name in voice_name_normalized):
-            return generate_audio(voice.voice_id, message), voice.name
+    # search_terms_normalized = person_normalized.split()
+    # for voice in voicess:
+    #     voice_name_normalized = normalize_text(voice.name).split()
+    #     if any(term in voice_name_normalized for term in search_terms_normalized) or any(name in search_terms_normalized for name in voice_name_normalized):
+    #         return generate_audio(voice.voice_id, message), voice.name
     
-    voices_dicts = [{"name": voice.name, "description": voice.description, "labels": voice.labels} for voice in voicess]
+    voices_dicts = [{"name": voice.name, "description": voice.description} for voice in voicess]
     try:
+
         completion = client.chat.completions.create(
             model="gpt-4-0125-preview",
             messages=[{
-                "role": "system", "content": f"""Your job is to analyse the following data of voice samples of people and select a voice which closely matches the famous person {person} based on gender, nationality, accent, and other markers. You must return an answer from the provided data even if there aren't any close matches. Don't return anything else. Your answer should be in the following JSON format:
-                  "response": "[YOUR ANSWER]"
+                "role": "system", "content": f"""Your task is to evaluate the provided voice sample data to identify a voice that closely resembles the characteristics of the specified person, {person}. Focus on matching gender, nationality, and accent as accurately as possible. If the person's nationality is known, prioritize voices of that nationality. You must choose the best match from the available data, even in cases where an exact match is not present. Please format your response in JSON, strictly adhering to the template below, and ensure it accurately reflects the target individual's gender, nationality, and accent characteristics.
+                                Your response must be in the following json format, only return the voice you've selected and nothing else:
+                                            
+                                        "person": "[YOUR ANSWER]"
+                        
+                            Ensure your selection is informed by the details in the data, aiming for the closest possible resemblance to the person's voice profile.
+                  voice samples: 
                 {json.dumps(voices_dicts)}"""}],
             response_format={"type": "json_object"}
         )
         result = json.loads(completion.choices[0].message.content)
-        selected_voice_name = normalize_text(result["response"])
-        
+        selected_voice_name = normalize_text(result["person"])
+        print("GPT SELECTION: ", selected_voice_name)
         for voice in voicess:
             if normalize_text(voice.name) == selected_voice_name:
                 return generate_audio(voice.voice_id, message), voice.name
@@ -135,15 +141,14 @@ def audio(message, person):
         print(f"An error occurred during GPT model search: {e}")
     
     if default_voice_id is not None:
-        return generate_audio(default_voice_id, message), "Rachel"
+        return generate_audio(default_voice_id, message), "Default"
     else:
-        print("Default voice 'Rachel' not found.")
+        print("Default voice 'Default' not found.")
         return None, None
 
 
 
 def generate_audio(voice_id, message):
-    """Function to generate audio from the given voice ID and message."""
     url = f'https://api.elevenlabs.io/v1/text-to-speech/{voice_id}'
     headers = {
         'accept': 'audio/mpeg',
