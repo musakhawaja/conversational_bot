@@ -93,7 +93,10 @@ def save_user_session_context(user_id, session_id, context):
                               upsert=True)
 
 def normalize_text(text):
-    return text.lower()
+    text = text.lower()
+    text = text.strip()
+    text = " ".join(text.split())
+    return text
 
 def audio(message, person):
     voicess = voices()  
