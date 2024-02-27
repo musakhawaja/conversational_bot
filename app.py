@@ -6,15 +6,11 @@ from pydub import AudioSegment
 import io
 import tempfile
 import base64
-import threading
-
 def autoplay_audio(audio_bytes):
-    # Assuming audio_bytes is an io.BytesIO object containing MP3 data
-    audio = AudioSegment.from_file(audio_bytes, format="mp3")
+    audio = AudioSegment.from_file(io.BytesIO(audio_bytes), format="mp3")
     audio_length = len(audio) / 1000.0
 
-    # Convert io.BytesIO back to bytes for embedding in HTML
-    b64 = base64.b64encode(audio_bytes.getvalue()).decode()
+    b64 = base64.b64encode(audio_bytes).decode()
     audio_html = f"""
     <audio autoplay="true">
     <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
@@ -23,26 +19,23 @@ def autoplay_audio(audio_bytes):
     sound = st.empty()
     sound.markdown(audio_html, unsafe_allow_html=True)
 
-    time.sleep(audio_length + 2)
+    time.sleep(audio_length+1)
     sound.empty()
 
-
 def handle_text_input(user_input):
-    response_data = chat(user_input)
-    if response_data[0]:
-        st.write(f"{response_data[1]} : {response_data[0]}")
-        audio_1,_=response_data[2]
-        autoplay_audio(audio_1)
-    if response_data[3]:
-        st.write(f"{response_data[4]} : {response_data[3]}")
-        audio_2, _ = response_data[5]
-        autoplay_audio(audio_2)   
-
-
+    response_data = chat(user_input, "streamlit", "test22")
+    response, audio_data = response_data[:2]
+    st.write("Chat: ", response)
+    if len(response_data) > 2:  
+        image_bytes = response_data[2] 
+        st.image(image_bytes, caption="Received Image", use_column_width=True)
+    if audio_data:
+        gen_audio_bytes_io, content_type = audio_data
+        autoplay_audio(gen_audio_bytes_io.getvalue())
 
 
 def main():
-    st.title("Prespectives")
+    st.title("Conversational AI")
     
     if 'chat_history' not in st.session_state:
         st.session_state.chat_history = []
