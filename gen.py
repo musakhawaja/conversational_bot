@@ -11,7 +11,6 @@ import tempfile
 from playsound import playsound
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
-import concurrent.futures
 
 uri = "mongodb+srv://factorbp123:3nQUg2bKZbaNr0J8@cluster0.a7tfrnu.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 client = MongoClient(uri, server_api=ServerApi('1'))
@@ -105,6 +104,7 @@ def audio(message, person):
     default_voice_id = None
     
     for voice in voicess:
+        # print(voice.name)
         voice_name_normalized = normalize_text(voice.name)
         if voice_name_normalized == "default":
             default_voice_id = voice.voice_id
@@ -161,9 +161,9 @@ def generate_audio(voice_id, message):
     data = {
         "text": message,
         "voice_settings": {
-            "stability": 0.29,
-            "similarity_boost": 0.75,
-            "style": 0.9, "use_speaker_boost": True
+            "stability": 0.27,
+            "similarity_boost": 0.98,
+            "style": 0.54, "use_speaker_boost": True
         },
         "model_id": "eleven_turbo_v2",
     }
@@ -182,6 +182,39 @@ def play_audio(audio_bytes):
         os.remove(tmpfile.name)
 
 history = {}
+def chat(prompt, user_id, session_id):
+    context = get_user_session_context(user_id, session_id)
+    context.append({"role": "user", "content": prompt})
+
+    completion = client.chat.completions.create(
+        model="gpt-4-0125-preview",
+        messages=context,
+        max_tokens=4096,
+        response_format={"type": "json_object"}
+    )
+    result = completion.choices[0].message.content
+    context.append({"role": "assistant", "content": result})
+    save_user_session_context(user_id, session_id, context)
+    
+    data = json.loads(result)
+    response = data["response"]
+    person = data["person"]
+    print("GPT person: ", person)
+    gen_pic = data["gen_pic"]
+    prompt_pic = data["prompt"]
+    if person in history:
+        gen_audio, _ = audio(response, history[person])
+        print("old: ", history[person])
+    else:
+        gen_audio, person1 = audio(response, person)
+        history[person] = person1
+        print("new: ", person1)
+    if gen_pic is True:
+        picture = gen_picture(prompt=prompt_pic)
+        return response, gen_audio, picture
+    else:
+        return response, gen_audio
+
 # def chat(prompt, user_id, session_id):
 #     context = get_user_session_context(user_id, session_id)
 #     context.append({"role": "user", "content": prompt})
@@ -201,50 +234,20 @@ history = {}
 #     person = data["person"]
 #     gen_pic = data["gen_pic"]
 #     prompt_pic = data["prompt"]
-#     if person in history:
-#         gen_audio, _ = audio(response, history[person])
-#     else:
-#         gen_audio, person1 = audio(response, person)
-#         history[person] = person1
-#     if gen_pic is True:
-#         picture = gen_picture(prompt=prompt_pic)
+
+#     with concurrent.futures.ThreadPoolExecutor() as executor:
+#         future_audio = executor.submit(audio, response, history[person] if person in history else person)
+#         future_picture = executor.submit(gen_picture, prompt=prompt_pic) if gen_pic else None
+
+#         gen_audio, person_update = future_audio.result()
+#         if person not in history:
+#             history[person] = person_update
+#         picture = future_picture.result() if future_picture else None
+
+#     if gen_pic:
 #         return response, gen_audio, picture
 #     else:
 #         return response, gen_audio
-
-def chat(prompt, user_id, session_id):
-    context = get_user_session_context(user_id, session_id)
-    context.append({"role": "user", "content": prompt})
-
-    completion = client.chat.completions.create(
-        model="gpt-4-0125-preview",
-        messages=context,
-        max_tokens=4096,
-        response_format={"type": "json_object"}
-    )
-    result = completion.choices[0].message.content
-    context.append({"role": "assistant", "content": result})
-    save_user_session_context(user_id, session_id, context)
-    
-    data = json.loads(result)
-    response = data["response"]
-    person = data["person"]
-    gen_pic = data["gen_pic"]
-    prompt_pic = data["prompt"]
-
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        future_audio = executor.submit(audio, response, history[person] if person in history else person)
-        future_picture = executor.submit(gen_picture, prompt=prompt_pic) if gen_pic else None
-
-        gen_audio, person_update = future_audio.result()
-        if person not in history:
-            history[person] = person_update
-        picture = future_picture.result() if future_picture else None
-
-    if gen_pic:
-        return response, gen_audio, picture
-    else:
-        return response, gen_audio
 
 
 def gen_picture(prompt):

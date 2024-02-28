@@ -23,7 +23,7 @@ def autoplay_audio(audio_bytes):
     sound.empty()
 
 def handle_text_input(user_input):
-    response_data = chat(user_input, "streamlit", "test222")
+    response_data = chat(user_input, "streamlit", "test232")
     response, audio_data = response_data[:2]
     st.write("Chat: ", response)
     if len(response_data) > 2:  
