@@ -55,40 +55,32 @@ Give short conversational organic responses. You are now human act like it. You 
              """
              }]
 
-# def get_user_context(user_id):
-#     """Retrieve user context from MongoDB."""
-#     user_context = collection.find_one({"user_id": user_id})
-#     if user_context:
-#         return user_context['context']
-#     else:
-#         return json.loads(json.dumps(context_org))
-    
-# def save_user_context(user_id, context):
-#     """Save or update user context in MongoDB."""
-#     if collection.find_one({"user_id": user_id}):
-#         collection.update_one({"user_id": user_id}, {"$set": {"context": context}})
-#     else:
-#         collection.insert_one({"user_id": user_id, "context": json.loads(json.dumps(context))})
 
+# def get_user_session_context(user_id, session_id):
+#     """Retrieve session-specific context for a user."""
+#     user_document = collection.find_one({"user_id": user_id})
+#     if user_document:
+#         for session in user_document.get('sessions', []):
+#             if session['session_id'] == session_id:
+#                 return session['context']
+#     # Return default context if no session found
+#     return json.loads(json.dumps(context_org))
 
 def get_user_session_context(user_id, session_id):
-    """Retrieve session-specific context for a user."""
     user_document = collection.find_one({"user_id": user_id})
     if user_document:
         for session in user_document.get('sessions', []):
             if session['session_id'] == session_id:
-                return session['context']
-    # Return default context if no session found
-    return json.loads(json.dumps(context_org))
+                return session['context'], session.get('history', {})
+    return json.loads(json.dumps(context_org)), {}
 
-def save_user_session_context(user_id, session_id, context):
-    """Save or update session-specific context for a user."""
+def save_user_session_context(user_id, session_id, context, history):
     if collection.find_one({"user_id": user_id, "sessions.session_id": session_id}):
         collection.update_one({"user_id": user_id, "sessions.session_id": session_id},
-                              {"$set": {"sessions.$.context": context}})
+                              {"$set": {"sessions.$.context": context, "sessions.$.history": history}})
     else:
         collection.update_one({"user_id": user_id},
-                              {"$push": {"sessions": {"session_id": session_id, "context": context}}},
+                              {"$push": {"sessions": {"session_id": session_id, "context": context, "history": history}}},
                               upsert=True)
 
 def normalize_text(text):
@@ -104,7 +96,6 @@ def audio(message, person):
     default_voice_id = None
     
     for voice in voicess:
-        # print(voice.name)
         voice_name_normalized = normalize_text(voice.name)
         if voice_name_normalized == "default":
             default_voice_id = voice.voice_id
@@ -181,9 +172,8 @@ def play_audio(audio_bytes):
         playsound(tmpfile.name)
         os.remove(tmpfile.name)
 
-history = {}
 def chat(prompt, user_id, session_id):
-    context = get_user_session_context(user_id, session_id)
+    context,history = get_user_session_context(user_id, session_id)
     context.append({"role": "user", "content": prompt})
 
     completion = client.chat.completions.create(
@@ -194,7 +184,6 @@ def chat(prompt, user_id, session_id):
     )
     result = completion.choices[0].message.content
     context.append({"role": "assistant", "content": result})
-    save_user_session_context(user_id, session_id, context)
     
     data = json.loads(result)
     response = data["response"]
@@ -209,45 +198,14 @@ def chat(prompt, user_id, session_id):
         gen_audio, person1 = audio(response, person)
         history[person] = person1
         print("new: ", person1)
+    
+    save_user_session_context(user_id, session_id, context,history)
+    
     if gen_pic is True:
         picture = gen_picture(prompt=prompt_pic)
         return response, gen_audio, picture
     else:
         return response, gen_audio
-
-# def chat(prompt, user_id, session_id):
-#     context = get_user_session_context(user_id, session_id)
-#     context.append({"role": "user", "content": prompt})
-
-#     completion = client.chat.completions.create(
-#         model="gpt-4-0125-preview",
-#         messages=context,
-#         max_tokens=4096,
-#         response_format={"type": "json_object"}
-#     )
-#     result = completion.choices[0].message.content
-#     context.append({"role": "assistant", "content": result})
-#     save_user_session_context(user_id, session_id, context)
-    
-#     data = json.loads(result)
-#     response = data["response"]
-#     person = data["person"]
-#     gen_pic = data["gen_pic"]
-#     prompt_pic = data["prompt"]
-
-#     with concurrent.futures.ThreadPoolExecutor() as executor:
-#         future_audio = executor.submit(audio, response, history[person] if person in history else person)
-#         future_picture = executor.submit(gen_picture, prompt=prompt_pic) if gen_pic else None
-
-#         gen_audio, person_update = future_audio.result()
-#         if person not in history:
-#             history[person] = person_update
-#         picture = future_picture.result() if future_picture else None
-
-#     if gen_pic:
-#         return response, gen_audio, picture
-#     else:
-#         return response, gen_audio
 
 
 def gen_picture(prompt):
@@ -273,12 +231,10 @@ def transcription(audio_file):
 
 if __name__ == "__main__":
     while True:
-        user_id = input("Enter your user ID: ") 
-        session_id = input("Enter your session ID: ")
         user_input = input("You: ")
         if user_input.lower() in ["quit", "exit", "bye"]:
             break
-        response, audio_data = chat(user_input, user_id=user_id, session_id=session_id)
+        response, audio_data = chat(user_input, user_id="1212", session_id="12")
         print("Chat: ", response)
         if audio_data:
             gen_audio_bytes_io, content_type = audio_data
