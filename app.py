@@ -1,6 +1,5 @@
 import streamlit as st
 from gen import chat, transcription  
-import requests
 import time
 from pydub import AudioSegment
 import io
