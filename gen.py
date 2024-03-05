@@ -88,23 +88,20 @@ def normalize_text(text):
 def audio(message, person):
     voicess = voices()  
     person_normalized = normalize_text(person)
-    
+    voices_dicts = []
+
     default_voice_id = None
     
     for voice in voicess:
         voice_name_normalized = normalize_text(voice.name)
+        voices_dicts.append({"name": voice.name, "description": voice.description})
         if voice_name_normalized == "default":
             default_voice_id = voice.voice_id
         if voice_name_normalized == person_normalized:
             return generate_audio(voice.voice_id, message), voice.name
     
-    # search_terms_normalized = person_normalized.split()
-    # for voice in voicess:
-    #     voice_name_normalized = normalize_text(voice.name).split()
-    #     if any(term in voice_name_normalized for term in search_terms_normalized) or any(name in search_terms_normalized for name in voice_name_normalized):
-    #         return generate_audio(voice.voice_id, message), voice.name
     
-    voices_dicts = [{"name": voice.name, "description": voice.description} for voice in voicess]
+    # voices_dicts = [{"name": voice.name, "description": voice.description} for voice in voicess]
     try:
 
         completion = client.chat.completions.create(
